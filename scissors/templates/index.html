@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}
+Home
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="text-center">Welcome to Scissors!!</h1>
+    <form action="/url/shorten" method="post" credentials="include">
+        <div class="form-group">
+            <input type="text" name="original_url" placeholder="Enter URL to shorten" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary">Shorten URL</button>
+    </form>
+</div>
+{% endblock %}
