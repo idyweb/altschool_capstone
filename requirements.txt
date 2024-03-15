@@ -6,6 +6,7 @@ psycopg2==2.9.9
 pydantic==2.6.4
 pytest==7.4.2
 python_jose==3.3.0
+python-multipart
 qrcode==7.4.2
 SQLAlchemy==2.0.22
 starlette
