@@ -37,6 +37,8 @@ def get_db():
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[models.Users, Depends(get_current_user)]
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
 class UrlsValidator(BaseModel):
     original_url: str = Field(max_length=1000)
     custom_path: Optional[str] = Field(max_length=20)
@@ -81,6 +83,7 @@ def validate_url_data(url_data):
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
+    
 # @url_router.get('/')
 # def get_home(request: Request):
 #     return "hello world"
@@ -109,6 +112,8 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
         
     if shortened_url is None:
         raise HTTPException(status_code=500, detail="Failed to generate a unique short code")
+    
+    shortened_url = shortened_url
 
     # Construct the full shortened URL
     full_shortened_url = f"http://{request.headers['host']}/{shortened_url}"
@@ -141,9 +146,9 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
 
     # Save the mapping in the database
     if custom_path:
-        db_url = models.Urls(original_url=original_url, shortened_url=full_shortened_url, user_id=current_user.id, custom_path=custom_path, qr_code_path=qr_code_path, visit_count=0)
+        db_url = models.Urls(original_url=original_url, shortened_url=shortened_url, full_shortened_url=full_shortened_url, user_id=current_user.id, custom_path=custom_path, qr_code_path=qr_code_path, visit_count=0)
     else:
-        db_url = models.Urls(original_url=original_url, shortened_url=full_shortened_url, qr_code_path=qr_code_path, visit_count=0, user_id = current_user.id)
+        db_url = models.Urls(original_url=original_url, shortened_url=shortened_url, full_shortened_url=full_shortened_url, qr_code_path=qr_code_path, visit_count=0, user_id = current_user.id)
     try:
         db.add(db_url)
         db.commit()
@@ -187,10 +192,12 @@ def delete_url(shortened_url: str, db: Session = Depends(get_db), current_user: 
     db.delete(db_url)
     db.commit()
 
-@url_router.get("/{shortened_url:path}", status_code=status.HTTP_302_FOUND)
-def redirect_to_original_url(request:Request,shortened_url: str, db: Session = Depends(get_db)):
+@url_router.get("/url/{shortened_url}", status_code=status.HTTP_302_FOUND)
+def redirect_to_original_url(shortened_url: str, db: Session = Depends(get_db)):
     # Retrieve the original URL from the database based on the full shortened URL
-    db_url = db.query(models.Urls).filter(models.Urls.shortened_url == f"http://{request.headers['host']}/{shortened_url}").first()
+    print(shortened_url, 'this is shortened_url')
+    db_url = db.query(models.Urls).filter(models.Urls.shortened_url == f"{shortened_url}").first()
+    
     
     if db_url:
         # Increment the visit count (optional)

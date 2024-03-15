@@ -39,9 +39,13 @@ def get_db():
     finally:
         db.close()
 
-@app.get("/")
-def read_root(request: Request, db: Session = Depends(get_db)):
+@app.get('/')
+def get_home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+# @app.get("/shorten")
+# def read_root(request: Request, db: Session = Depends(get_db)):
+#     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/signup")
 def signup(request: Request):

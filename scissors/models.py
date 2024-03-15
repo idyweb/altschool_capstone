@@ -10,6 +10,7 @@ class Urls(Base):
     id = Column(Integer, primary_key=True, index=True)
     original_url = Column(String(500), unique=True)
     shortened_url = Column(String(50),index=True)
+    full_shortened_url = Column(String(250), index=True)
     custom_path = Column(String, unique=True)
     qr_code_path = Column(String(250), index=True)
     visit_count = Column(Integer, default=0)
