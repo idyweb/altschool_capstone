@@ -1,5 +1,5 @@
-from fastapi import Depends, HTTPException, Path, APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Depends, HTTPException, Path, APIRouter, Request, Form, Cookie
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Optional, Union
@@ -10,6 +10,8 @@ from starlette import status
 from models import Urls
 from db import engine, session
 from .auth import get_current_user
+from urllib.parse import urlparse
+from fastapi.security import OAuth2PasswordBearer
 import random
 import string
 import qrcode
@@ -34,11 +36,21 @@ def get_db():
 
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[models.Users, Depends(get_current_user)]
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 class UrlsValidator(BaseModel):
     original_url: str = Field(max_length=1000)
     custom_path: Optional[str] = Field(max_length=20)
 
+async def get_token_from_header_or_cookie(request: Request):
+    token: str = await oauth2_scheme(request)
+    print(token, 'this is token')
+    if token:
+        return token
+    print(request.cookies, 'this is request.cookies')
+    if "access_token" in request.cookies:
+
+        return request.cookies["access_token"]
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
 def generate_short_code():
     # Generate a random short code consisting of alphanumeric characters
@@ -47,29 +59,53 @@ def generate_short_code():
     return short_code
 
 def check_uniqueness(db: Session, short_code: str):
+    
     # Check if the short code already exists in the database
-    return db.query(Urls).filter(Urls.shortened_url == short_code).first() is None
+    return db.query(Urls).filter(Urls.shortened_url == short_code).first()
 
+def generate_new_code(db: Session, short_code):
+    print(check_uniqueness(db, short_code), 'this is check_uniqueness')
+    if check_uniqueness(db, short_code):
+        short_code = generate_short_code()
+        return generate_new_code(db, short_code)
+    else:
+        return short_code
+    
+def validate_url_data(url_data):
+    original_url = url_data.get('original_url')
+    if not original_url:
+        return False
 
+    try:
+        result = urlparse(original_url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 # @url_router.get('/')
 # def get_home(request: Request):
 #     return "hello world"
 
-@url_router.post("/url/shorten", response_model=UrlsValidator, status_code=status.HTTP_201_CREATED)
-def shorten_url(original_url: str, request: Request, db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user), custom_path: Optional[str] = None):
-    if original_url is None or original_url == '':
-        raise HTTPException(status_code=400, detail="original_url is required")
-    if request.headers.get('host') is None:
-        raise HTTPException(status_code=400, detail="Host header is required")
+@url_router.post("/url/shorten", response_model=UrlsValidator,  status_code=status.HTTP_201_CREATED)
+async def shorten_url(request:Request, original_url: str = Form(...), access_token: str = Cookie(None), db: Session = Depends(get_db), custom_path: Optional[str] = None):
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing access token cookie",
+            headers={"WWW-Authenticate": "Bearer"}
+            )
+    current_user = await get_current_user(access_token, db)
+    print(current_user, 'this is current_user')
+    
+    
+    
     # Generate a unique short code
-    while True:
-        short_code = generate_short_code()
-        print(f"short_code after generation: {short_code}")
-        if check_uniqueness(db, short_code):
-            print(f"shortened_url: {shortened_url}")
-            shortened_url = short_code
-            print(f"shortened_url after assignment: {shortened_url}")
-            break
+    short_code = generate_short_code()
+    print(f"short_code after generation: {short_code}")
+    shortened_url = generate_new_code(db, short_code)
+    # if check_uniqueness(db, short_code):
+    #     print(f"shortened_url: {shortened_url}")
+    #     shortened_url = short_code
+    #     print(f"shortened_url after assignment: {shortened_url}")
         
     if shortened_url is None:
         raise HTTPException(status_code=500, detail="Failed to generate a unique short code")
@@ -105,21 +141,18 @@ def shorten_url(original_url: str, request: Request, db: Session = Depends(get_d
 
     # Save the mapping in the database
     if custom_path:
-        db_url = models.Urls(original_url=original_url, shortened_url=shortened_url, user_id=current_user.id, custom_path=custom_path, qr_code_path=qr_code_path, visit_count=0)
+        db_url = models.Urls(original_url=original_url, shortened_url=full_shortened_url, user_id=current_user.id, custom_path=custom_path, qr_code_path=qr_code_path, visit_count=0)
     else:
-        db_url = models.Urls(original_url=original_url, shortened_url=shortened_url, qr_code_path=qr_code_path, visit_count=0)
-    db.add(db_url)
-    db.commit()
+        db_url = models.Urls(original_url=original_url, shortened_url=full_shortened_url, qr_code_path=qr_code_path, visit_count=0, user_id = current_user.id)
+    try:
+        db.add(db_url)
+        db.commit()
+    except Exception as e:
+        print(f"Failed to add URL to database: {e}")
     
     # Return the newly created URL
-    return {
-        "id": db_url.id,
-        "original_url": db_url.original_url,
-        "shortened_url": full_shortened_url,
-        "qr_code_path": db_url.qr_code_path,
-        "visit_count": db_url.visit_count,
-        "custom_path": db_url.custom_path
-    }
+    # return JSONResponse(content={"shortened_url": shortened_url}, status_code=201)
+    return db_url
 
 # @url_router.get("/{shortened_url}", response_model=UrlsValidator)
 # def get_url(shortened_url: str, db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):
@@ -133,6 +166,11 @@ def update_url(shortened_url: str, url: UrlsValidator, db: Session = Depends(get
     db_url = db.query(models.Urls).filter(models.Urls.shortened_url == shortened_url).first()
     if db_url is None or db_url.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="URL not found")
+    
+    # Validate the URL data
+    url_data = url.dict()
+    if not validate_url_data(url_data):
+        raise HTTPException(status_code=400, detail="Invalid URL data")
     
     # Update the URL
     for var, value in url.dict().items():
@@ -149,10 +187,10 @@ def delete_url(shortened_url: str, db: Session = Depends(get_db), current_user: 
     db.delete(db_url)
     db.commit()
 
-@url_router.get("/url/{shortened_url}", status_code=status.HTTP_302_FOUND)
-def redirect_to_original_url(shortened_url: str, db: Session = Depends(get_db)):
-    # Retrieve the original URL from the database based on the shortened URL
-    db_url = db.query(models.Urls).filter(models.Urls.shortened_url == shortened_url).first()
+@url_router.get("/{shortened_url:path}", status_code=status.HTTP_302_FOUND)
+def redirect_to_original_url(request:Request,shortened_url: str, db: Session = Depends(get_db)):
+    # Retrieve the original URL from the database based on the full shortened URL
+    db_url = db.query(models.Urls).filter(models.Urls.shortened_url == f"http://{request.headers['host']}/{shortened_url}").first()
     
     if db_url:
         # Increment the visit count (optional)

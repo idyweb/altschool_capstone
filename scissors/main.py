@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Response
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Response,Form
 from routers.auth import router,authenticate_user, create_access_token
 from routers.urls import url_router
 from starlette.staticfiles import StaticFiles
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
