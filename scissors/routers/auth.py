@@ -4,9 +4,9 @@ from fastapi.templating import Jinja2Templates
 from typing import Annotated
 from pydantic import BaseModel, Field 
 from sqlalchemy.orm import Session
-from models import Users
+from scissors.models import Users
 from passlib.context import CryptContext
-from db import session
+from scissors.db import session
 from starlette import status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt

@@ -1,4 +1,4 @@
-from db import Base
+from scissors.db import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime

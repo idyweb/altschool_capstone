@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, status, Response,Form
-from routers.auth import router,authenticate_user, create_access_token
-from routers.urls import url_router
+from scissors.routers.auth import router,authenticate_user, create_access_token
+from scissors.routers.urls import url_router
 from starlette.staticfiles import StaticFiles
 from starlette.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
-from db import session as SessionLocal
+from scissors.db import session as SessionLocal
 from sqlalchemy.orm import Session
 
 

@@ -5,11 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, Optional, Union
 from pydantic import BaseModel, Field, ValidationError, validators,validator
 from sqlalchemy.orm import Session
-import models
+from scissors import models
 from starlette import status
-from models import Urls
-from db import engine, session
-from .auth import get_current_user
+from scissors.models import Urls
+from scissors.db import engine, session
+from scissors.routers.auth import get_current_user
 from urllib.parse import urlparse
 from fastapi.security import OAuth2PasswordBearer
 import random
@@ -42,6 +42,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 class UrlsValidator(BaseModel):
     original_url: str = Field(max_length=1000)
     custom_path: Optional[str] = Field(max_length=20)
+    full_shortened_url: str = Field(max_length=1000)
 
 async def get_token_from_header_or_cookie(request: Request):
     token: str = await oauth2_scheme(request)
@@ -116,9 +117,9 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
     shortened_url = shortened_url
 
     # Construct the full shortened URL
-    full_shortened_url = f"http://{request.headers['host']}/{shortened_url}"
+    full_shortened_url = f"http://{request.headers['host']}/url/{shortened_url}"
     if custom_path:
-        full_shortened_url = f"http://{request.headers['host']}/{custom_path}/{shortened_url}"
+        full_shortened_url = f"http://{request.headers['host']}/{custom_path}/url/{shortened_url}"
         
     if full_shortened_url is None:
         raise HTTPException(status_code=500, detail="Failed to construct shortened URL")
