@@ -11,7 +11,19 @@ Home
         <div class="form-group">
             <input type="text" name="original_url" placeholder="Enter URL to shorten" class="form-control">
         </div>
+        <div class="form-group">
+            <input type="text" name="custom_path" placeholder="Enter custom domain (optional)" class="form-control">
+        </div>
         <button type="submit" class="btn btn-primary">Shorten URL</button>
     </form>
 </div>
+<hr>
+<div style="text-align:center;">
+    <p>This is your shortened URL: <a href="{{ full_shortened_url }}">{{ full_shortened_url }}</a></p>
+    <p>QR Code:</p>
+    <img src="{{ qr_code_url }}" alt="QR code">
+    
+    <a href="{{ qr_code_url }}" download>Download QR Code</a>
+</div>
+
 {% endblock %}

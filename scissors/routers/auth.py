@@ -42,7 +42,7 @@ class ShowUser(BaseModel):
     last_name: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str
@@ -62,9 +62,9 @@ db_dependency = Annotated[Session, Depends(get_db)]
 def authenticate_user(username: str, password: str, db: db_dependency):
     user = db.query(Users).filter(Users.username == username).first()
     if user is None:
-        return False
+        return RedirectResponse(url='/login', status_code=status.HTTP_303_SEE_OTHER)
     if not bcrypt_context.verify(password, user.hashed_password):
-        return False
+        return RedirectResponse(url='/login', status_code=status.HTTP_303_SEE_OTHER)
     
     return user
 

@@ -16,6 +16,7 @@ import random
 import string
 import qrcode
 import os
+from urllib.parse import urlparse
 
 
 url_router = APIRouter(
@@ -84,32 +85,23 @@ def validate_url_data(url_data):
         return all([result.scheme, result.netloc])
     except ValueError:
         return False
-    
-# @url_router.get('/')
-# def get_home(request: Request):
-#     return "hello world"
+
 
 @url_router.post("/url/shorten", response_model=UrlsValidator,  status_code=status.HTTP_201_CREATED)
 async def shorten_url(request:Request, original_url: str = Form(...), access_token: str = Cookie(None), db: Session = Depends(get_db), custom_path: Optional[str] = None):
     if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing access token cookie",
-            headers={"WWW-Authenticate": "Bearer"}
-            )
+        return RedirectResponse(url='/login', status_code=status.HTTP_303_SEE_OTHER)
     current_user = await get_current_user(access_token, db)
-    print(current_user, 'this is current_user')
     
+    # Validate the original_url
+    if not validate_url_data({'original_url': original_url}):
+        raise HTTPException(status_code=400, detail="Invalid URL")
     
     
     # Generate a unique short code
     short_code = generate_short_code()
-    print(f"short_code after generation: {short_code}")
     shortened_url = generate_new_code(db, short_code)
-    # if check_uniqueness(db, short_code):
-    #     print(f"shortened_url: {shortened_url}")
-    #     shortened_url = short_code
-    #     print(f"shortened_url after assignment: {shortened_url}")
+ 
         
     if shortened_url is None:
         raise HTTPException(status_code=500, detail="Failed to generate a unique short code")
@@ -137,12 +129,10 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
     qr.make(fit=True)
 
     img = qr.make_image(fill='black', back_color='white')
-    
-    if not os.path.exists('qrcodes'):
-        os.makedirs('qrcodes')
 
     # Save the QR code image to a file
-    qr_code_path = f"qrcodes/{shortened_url}.png"
+    qr_code_path = f"./static/{shortened_url}.png"
+    qr_code_url = f"http://{request.headers['host']}/static/{shortened_url}.png"
     img.save(qr_code_path)
 
     # Save the mapping in the database
@@ -156,16 +146,15 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
     except Exception as e:
         print(f"Failed to add URL to database: {e}")
     
-    # Return the newly created URL
-    # return JSONResponse(content={"shortened_url": shortened_url}, status_code=201)
-    return db_url
+    return templates.TemplateResponse("index.html", {"request": request, 'qr_code_url' : qr_code_url, 'full_shortened_url':full_shortened_url})
 
-# @url_router.get("/{shortened_url}", response_model=UrlsValidator)
-# def get_url(shortened_url: str, db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):
-#     db_url = db.query(models.Urls).filter(models.Urls.shortened_url == shortened_url).first()
-#     if db_url is None or db_url.user_id != current_user.id:
-#         raise HTTPException(status_code=404, detail="URL not found")
-#     return db_url
+
+@url_router.get("/urls")
+def get_all_urls(db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):
+    db_urls = db.query(models.Urls).filter(models.Urls.user_id == current_user.id).all()
+    if db_urls is None:
+        raise HTTPException(status_code=404, detail="URLs not found")
+    return db_urls
 
 @url_router.put("/url/{shortened_url}", response_model=UrlsValidator)
 def update_url(shortened_url: str, url: UrlsValidator, db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):
