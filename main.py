@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 from scissors.db import session as SessionLocal
 from sqlalchemy.orm import Session
-import os
+
 
 
 origins = ["*"]
@@ -24,9 +24,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(router)
 app.include_router(url_router)
