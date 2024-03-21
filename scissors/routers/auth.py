@@ -83,7 +83,7 @@ async def get_current_user(token: str = Cookie(None), db: Session = Depends(get_
         user_id: int = payload.get('id')
         
         if username is None or user_id is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token')
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token. please login or signup')
 
         user = db.query(Users).filter(Users.id == user_id).first()
         if user is None:
@@ -91,7 +91,7 @@ async def get_current_user(token: str = Cookie(None), db: Session = Depends(get_
 
         return user
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token. please login or signup')
 
 
 @router.post("/signup", response_model=ShowUser, status_code=status.HTTP_201_CREATED)
