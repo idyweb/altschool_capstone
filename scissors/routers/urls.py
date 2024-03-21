@@ -150,11 +150,14 @@ async def shorten_url(request:Request, original_url: str = Form(...), access_tok
 
 
 @url_router.get("/urls")
-def get_all_urls(db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):
-    db_urls = db.query(models.Urls).filter(models.Urls.user_id == current_user.id).all()
-    if db_urls is None:
-        raise HTTPException(status_code=404, detail="URLs not found")
-    return db_urls
+async def get_all_urls(access_token: str = Cookie(None), db: Session = Depends(get_db)):
+    user = await get_current_user(access_token, db)
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    urls = db.query(Urls).filter(Urls.user_id == user.id).all()
+    return urls
+
 
 @url_router.put("/url/{shortened_url}", response_model=UrlsValidator)
 def update_url(shortened_url: str, url: UrlsValidator, db: Session = Depends(get_db), current_user: models.Users = Depends(get_current_user)):

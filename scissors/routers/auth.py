@@ -107,7 +107,7 @@ async def create_user(db: db_dependency, username: str = Form(...), email: str =
     db.add(create_user_model)
     db.commit()
     db.refresh(create_user_model)
-    return create_user_model
+    return RedirectResponse(url='/login', status_code=status.HTTP_303_SEE_OTHER)
 
 @router.post("/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
